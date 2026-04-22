@@ -1,41 +1,39 @@
-from random import Random
-
+from random import random
 from cmu_graphics import *
 import cv2
 
 def drawGhost(cx, cy):
-    # ghost body
     drawCircle(cx, cy - 20, 20, fill='white')
     drawRect(cx - 20, cy - 20, 40, 40, fill='white')
 
-    # bottom of ghost (wavy)
     drawCircle(cx - 12, cy + 20, 8, fill='white')
     drawCircle(cx, cy + 20, 8, fill='white')
     drawCircle(cx + 12, cy + 20, 8, fill='white')
 
-    # eyes of ghost
     drawCircle(cx - 6, cy - 20, 4, fill='black')
     drawCircle(cx + 6, cy - 20, 4, fill='black')
 
-    # mushroom position relative to ghost
     mx = cx + 10
     my = cy + 8
 
-    # mushroom stem (with black border)
     drawRect(mx - 2, my + 2, 4, 6, fill='beige', border='black', borderWidth=0.5)
 
-    # mushroom cap (with black border)
     drawCircle(mx, my, 4.5, fill='red', border='black', borderWidth=0.5)
 
-    # white spots on mushroom (draw after to be on top)
     drawCircle(mx - 2, my - 2, 1, fill='beige')
     drawCircle(mx + 2, my - 2, 1, fill='beige')
     drawCircle(mx, my + 1, 1, fill='beige')
 
-    # little leaves on stem
     drawCircle(cx - 3, cy - 48, 3, fill='green')
     drawCircle(cx + 3, cy - 48, 3, fill='green')
     drawLine(cx, cy - 40, cx, cy - 48, fill='green', lineWidth=2)
+
+def drawBox(x, y, w, h):
+    # top of the box
+    drawRect(x, y, w, h, fill='sienna', border='black')
+
+    # front side to make it look thicker
+    drawRect(x, y + h, w, 10, fill='peru', border='black')
 
 def onAppStart(app):
     # --- Camera setup ---
@@ -57,6 +55,30 @@ def onAppStart(app):
     # Smooth face
     app.smoothedFaceY = None
 
+    # --- Platforms ---
+    first = (70, 330, 100, 18)
+    second = generateNextPlatform(first)
+    app.platforms = [first, second]
+
+    # --- Player ---
+    # Place the ghost on the first platform
+    app.playerX = first[0] + first[2] // 2
+    app.playerY = first[1] - 25
+
+def generateNextPlatform(prev):
+    (x, y, w, h) = prev
+
+    newWidth = int(random() * 60) + 50
+    gap = int(random() * 60) + 100
+    heightDiff = int(random() * 80) - 30
+
+    newX = x + w + gap
+    newY = y - heightDiff
+
+    # keep the platform in a reasonable vertical range
+    newY = max(180, min(360, newY))
+
+    return (newX, newY, newWidth, h)
 
 def onStep(app):
     ret, frame = app.cap.read()
@@ -108,15 +130,16 @@ def redrawAll(app):
     # Background
     drawRect(0, 0, app.width, app.height, fill='lightblue')
 
-    # Player
-    drawCircle(app.playerX, app.playerY, 20, fill='red')
+    # Platforms
+    for (x, y, w, h) in app.platforms:
+        drawBox(x, y, w, h)
 
     # Debug text
     drawLabel(f"squatDepth: {int(app.squatDepth)}", app.width // 2, 50, size=20)
     drawLabel(f"baselineY: {app.baselineY}", app.width // 2, 80, size=16)
 
+    # Ghost player
     drawGhost(app.playerX, app.playerY)
-    
+
 
 runApp(width=400, height=600)
-cmu.graphics.run()
