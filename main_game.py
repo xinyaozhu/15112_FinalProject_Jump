@@ -2,39 +2,64 @@ from random import random
 from cmu_graphics import *
 import cv2
 
-def drawGhost(cx, cy):
-    drawCircle(cx, cy - 20, 20, fill='white')
-    drawRect(cx - 20, cy - 20, 40, 40, fill='white')
+def drawGhost(cx, cy, vy, isCharging, chargeAmount):
+    # 默认比例
+    scaleX = 1
+    scaleY = 1
 
-    drawCircle(cx - 12, cy + 20, 8, fill='white')
-    drawCircle(cx, cy + 20, 8, fill='white')
-    drawCircle(cx + 12, cy + 20, 8, fill='white')
+    # 蓄力时：压扁一点
+    if isCharging:
+        t = min(1, chargeAmount / 30)
+        scaleX = 1 + 0.25 * t
+        scaleY = 1 - 0.25 * t
 
-    drawCircle(cx - 6, cy - 20, 4, fill='black')
-    drawCircle(cx + 6, cy - 20, 4, fill='black')
+    # 起跳时：拉长一点
+    elif vy < 0:
+        scaleX = 0.9
+        scaleY = 1.15
 
-    mx = cx + 10
-    my = cy + 8
+    # 下落时：轻微压缩
+    elif vy > 0:
+        scaleX = 1.08
+        scaleY = 0.92
 
+    bodyTopR = 20
+    bodyW = 40 * scaleX
+    bodyH = 40 * scaleY
+
+    # 头
+    drawCircle(cx, cy - 20 * scaleY, bodyTopR * scaleY, fill='white')
+    drawCircle(cx - 3, cy - 48 * scaleY, 3, fill='green')
+    drawCircle(cx + 3, cy - 48 * scaleY, 3, fill='green')
+    drawLine(cx, cy - 40 * scaleY, cx, cy - 48 * scaleY, fill='green', lineWidth=2)
+
+    # 身体
+    drawRect(cx - bodyW/2, cy - 20 * scaleY, bodyW, bodyH, fill='white')
+
+    # 底部波浪
+    drawCircle(cx - 12 * scaleX, cy + 20 * scaleY, 8 * scaleY, fill='white')
+    drawCircle(cx,               cy + 20 * scaleY, 8 * scaleY, fill='white')
+    drawCircle(cx + 12 * scaleX, cy + 20 * scaleY, 8 * scaleY, fill='white')
+
+    # 眼睛
+    drawCircle(cx - 6 * scaleX, cy - 20 * scaleY, 4, fill='black')
+    drawCircle(cx + 6 * scaleX, cy - 20 * scaleY, 4, fill='black')
+
+    # 嘴
+    mx = cx + 10 * scaleX
+    my = cy + 8 * scaleY
     drawRect(mx - 2, my + 2, 4, 6, fill='beige', border='black', borderWidth=0.5)
-
     drawCircle(mx, my, 4.5, fill='red', border='black', borderWidth=0.5)
-
-    drawCircle(mx - 2, my - 2, 1, fill='beige')
-    drawCircle(mx + 2, my - 2, 1, fill='beige')
-    drawCircle(mx, my + 1, 1, fill='beige')
-
-    drawCircle(cx - 3, cy - 48, 3, fill='green')
-    drawCircle(cx + 3, cy - 48, 3, fill='green')
-    drawLine(cx, cy - 40, cx, cy - 48, fill='green', lineWidth=2)
-
 def drawBox(x, y, w, h):
     # top of the box
     drawRect(x, y, w, h, fill='sienna', border='black')
 
     # front side to make it look thicker
     drawRect(x, y + h, w, 10, fill='peru', border='black')
-
+def drawChargeGlow(cx, cy, chargeAmount):
+    glowR = 28 + min(20, chargeAmount)
+    drawCircle(cx, cy - 5, glowR, fill='deepskyblue', opacity=15)
+    drawCircle(cx, cy - 5, glowR - 8, fill='white', opacity=10)
 def onAppStart(app):
     # --- Camera setup ---
     app.cap = cv2.VideoCapture(1, cv2.CAP_AVFOUNDATION)
@@ -71,6 +96,7 @@ def onAppStart(app):
     app.jumpDirection = 1
     app.jumpYScale = 0.9
     app.jumpXScale = 0.4
+    app.score = 0
 
     # --- Player ---
     # Place the ghost on the first platform
@@ -115,12 +141,7 @@ def onStep(app):
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    faces = app.faceCascade.detectMultiScale(
-        gray,
-        scaleFactor=1.1,
-        minNeighbors=5,
-        minSize=(60, 60)
-    )
+    faces = app.faceCascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60))
 
     biggestFace = None
     biggestArea = 0
@@ -201,6 +222,8 @@ def onStep(app):
 
                     app.platforms = [oldPlatform, newPlatform]
                     app.currentPlatformIndex = 0
+                    app.score += 1
+                    
 
             if app.playerY > app.height + 50:
                 app.gameOver = True
@@ -223,21 +246,19 @@ def redrawAll(app):
 
     # Debug text
     drawLabel(f"squatDepth: {int(app.squatDepth)}", app.width // 2, 50, size=20)
-    drawLabel(f"baselineY: {app.baselineY}", app.width // 2, 80, size=16)
 
     # Ghost player
-    drawGhost(app.playerX, app.playerY)
+    drawGhost(app.playerX, app.playerY, app.playerVY, app.isCharging, app.maxSquatDepth)
 
     drawLabel(f"squatDepth: {int(app.squatDepth)}", app.width//2, 50, size=20)
-    drawLabel(f"isJumping: {app.isJumping}", app.width//2, 100, size=16)
-    drawLabel(f"maxSquat: {int(app.maxSquatDepth)}", app.width//2, 120, size=16)
-    drawLabel(f"playerVY: {int(app.playerVY)}", app.width//2, 140, size=16)
     drawLabel(f"isCharging: {app.isCharging}", app.width//2, 160, size=16)
-    drawLabel(f"playerVX: {app.playerVX:.1f}", app.width//2, 180, size=16)
-
+    drawLabel(f"Score: {app.score}", 70, 30, size=20)
+    drawLabel(f"Press Left and Right to change direction", app.width//2, 100, size=16)
+    if app.isCharging:
+        drawChargeGlow(app.playerX, app.playerY, app.maxSquatDepth)
     if app.gameOver:
-        drawLabel("Game Over", app.width // 2, app.height // 2,
-                size=32, fill='red', bold=True)
+        drawLabel("Game Over", app.width // 2, app.height // 2, size=32, fill='red', bold=True)
+        drawLabel(f"Final Score: {app.score}", app.width//2, app.height//2 + 40, size=18)
 
 
 runApp(width=400, height=600)
