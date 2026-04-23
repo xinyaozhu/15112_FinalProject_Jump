@@ -58,8 +58,7 @@ def onAppStart(app):
     # --- Platforms ---
     first = (70, 330, 100, 18)
     p2 = (220, 280, 100, 18)
-    p3 = (90, 220, 100, 18)
-    app.platforms = [first, p2, p3]
+    app.platforms = [first, p2]
 
     # Horizontal movement
     app.isCharging = False
@@ -89,27 +88,25 @@ def onAppStart(app):
 def generateNextPlatform(prev):
     (x, y, w, h) = prev
 
-    newWidth = int(random() * 60) + 50
-    gap = int(random() * 60) + 100
-    heightDiff = int(random() * 80) - 30
-
-    newX = x + w + gap
-    newY = y - heightDiff
-
-    # keep the platform in a reasonable vertical range
+    newWidth = int(random() * 40) + 70
+    newY = y + int(random() * 80) - 40
     newY = max(180, min(360, newY))
 
-    # keep x on screen for now
-    if newX > 300:
+    # 如果旧板在左边，新板放右边
+    if x < 200:
         newX = 220
+    else:
+        newX = 70
 
     return (newX, newY, newWidth, h)
 
 def onKeyPress(app, key):
     if key == 'left':
         app.jumpDirection = -1
-    elif key == 'right':
+    if key == 'right':
         app.jumpDirection = 1
+    elif key == 'r' and app.gameOver:
+        onAppStart(app)
 
 def onStep(app):
     ret, frame = app.cap.read()
@@ -176,50 +173,41 @@ def onStep(app):
 
             app.playerX += app.playerVX
             app.playerY += app.playerVY
-            app.playerVY += 1   # gravity
+            app.playerVY += 1
 
             ghostBottom = app.playerY + 20
 
-            # only check landing while falling downward
             if app.playerVY > 0:
-                for i in range(len(app.platforms)):
-                    x, y, w, h = app.platforms[i]
+                targetIndex = 1 - app.currentPlatformIndex
+                x, y, w, h = app.platforms[targetIndex]
 
-                    withinX = (x <= app.playerX <= x + w)
-                    crossedTop = (prevBottom <= y and ghostBottom >= y)
+                withinX = (x <= app.playerX <= x + w)
+                crossedTop = (prevBottom <= y and ghostBottom >= y)
 
-                    if withinX and crossedTop:
-                        print("landed on", i) 
-                        app.currentPlatformIndex = i
+                if withinX and crossedTop:
+                    print("landed on target", targetIndex)
 
-                        app.playerY = y - 20
-                        app.playerVY = 0
-                        app.playerVX = 0
-                        app.isJumping = False
-                        app.isCharging = False
-                        app.groundY = y - 25
-                        break
+                    app.currentPlatformIndex = targetIndex
 
-                    # if the ghost falls below the screen, game over
-                    if app.playerY > app.height + 50:
-                        app.gameOver = True
-                        app.isJumping = False
-                        app.playerVX = 0
-                        app.playerVY = 0
+                    app.playerY = y - 25
+                    app.playerVY = 0
+                    app.playerVX = 0
+                    app.isJumping = False
+                    app.isCharging = False
+                    app.groundY = y - 25
 
-                    # # Land back on the current platform for now.
-                    # if app.playerY >= app.groundY:
-                    #     app.playerY = app.groundY
-                    #     app.playerVY = 0
-                    #     app.isJumping = False
-        # if (not app.isJumping) and app.currentPlatformIndex == 1:
-        #                 oldSecond = app.platforms[1]
-        #                 newPlatform = generateNextPlatform(oldSecond)
+                    oldPlatform = app.platforms[targetIndex]
+                    newPlatform = generateNextPlatform(oldPlatform)
 
-        #                 app.platforms.pop(0)
-        #                 app.platforms.append(newPlatform)
+                    app.platforms = [oldPlatform, newPlatform]
+                    app.currentPlatformIndex = 0
 
-        #                 app.currentPlatformIndex = 0     
+            if app.playerY > app.height + 50:
+                app.gameOver = True
+                app.isJumping = False
+                app.playerVX = 0
+                app.playerVY = 0
+                       
 
     # --- TEST CONNECTION ---
     # Move player based on squatDepth
