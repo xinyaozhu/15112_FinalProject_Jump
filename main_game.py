@@ -57,13 +57,11 @@ def onAppStart(app):
 
     # --- Platforms ---
     first = (70, 330, 100, 18)
-    second = generateNextPlatform(first)
-    app.platforms = [first, second]
+    p2 = (220, 280, 100, 18)
+    p3 = (90, 220, 100, 18)
+    app.platforms = [first, p2, p3]
 
     # Horizontal movement
-    app.playerVX = 0
-    app.currentPlatformIndex = 0
-    app.gameOver = False
     app.isCharging = False
     app.maxSquatDepth = 0
     app.isJumping = False
@@ -71,17 +69,14 @@ def onAppStart(app):
     app.playerVX = 0
     app.currentPlatformIndex = 0
     app.gameOver = False
+    app.jumpDirection = 1
+    app.jumpYScale = 0.9
+    app.jumpXScale = 0.4
 
     # --- Player ---
     # Place the ghost on the first platform
     app.playerX = first[0] + first[2] // 2
     app.playerY = first[1] - 25
-
-    # vertical jump speed
-    app.playerVY = -max(8, app.maxSquatDepth * 0.6)
-
-    # horizontal speed to move right
-    app.playerVX = max(3, app.maxSquatDepth * 0.25)
 
     app.maxSquatDepth = 0
 
@@ -89,6 +84,7 @@ def onAppStart(app):
     first = app.platforms[0]
     app.groundY = first[1] - 25
     app.playerY = app.groundY
+    
 
 def generateNextPlatform(prev):
     (x, y, w, h) = prev
@@ -103,7 +99,17 @@ def generateNextPlatform(prev):
     # keep the platform in a reasonable vertical range
     newY = max(180, min(360, newY))
 
+    # keep x on screen for now
+    if newX > 300:
+        newX = 220
+
     return (newX, newY, newWidth, h)
+
+def onKeyPress(app, key):
+    if key == 'left':
+        app.jumpDirection = -1
+    elif key == 'right':
+        app.jumpDirection = 1
 
 def onStep(app):
     ret, frame = app.cap.read()
@@ -158,15 +164,16 @@ def onStep(app):
             app.isCharging = False
             app.isJumping = True
 
-            # Convert squat depth into upward jump speed.
-            # Bigger squat -> stronger jump.
-            app.playerVY = -max(8, app.maxSquatDepth * 0.6)
+            app.playerVY = -max(6, app.maxSquatDepth * 0.6 * app.jumpYScale)
 
-            # Reset for the next jump.
+            speed = max(2, app.maxSquatDepth * 0.25 * app.jumpXScale)
+            app.playerVX = app.jumpDirection * speed
+
             app.maxSquatDepth = 0
 
-        # Update jumping motion.
         if app.isJumping:
+            prevBottom = app.playerY + 20
+
             app.playerX += app.playerVX
             app.playerY += app.playerVY
             app.playerVY += 1   # gravity
@@ -175,34 +182,44 @@ def onStep(app):
 
             # only check landing while falling downward
             if app.playerVY > 0:
-                # check every platform
                 for i in range(len(app.platforms)):
                     x, y, w, h = app.platforms[i]
 
-                    onTop = abs(ghostBottom - y) <= 10
                     withinX = (x <= app.playerX <= x + w)
+                    crossedTop = (prevBottom <= y and ghostBottom >= y)
 
-                    if onTop and withinX:
+                    if withinX and crossedTop:
+                        print("landed on", i) 
+                        app.currentPlatformIndex = i
+
                         app.playerY = y - 20
                         app.playerVY = 0
                         app.playerVX = 0
                         app.isJumping = False
-                        app.currentPlatformIndex = i
+                        app.isCharging = False
                         app.groundY = y - 25
                         break
 
-            # if the ghost falls below the screen, game over
-            if app.playerY > app.height + 50:
-                app.gameOver = True
-                app.isJumping = False
-                app.playerVX = 0
-                app.playerVY = 0
+                    # if the ghost falls below the screen, game over
+                    if app.playerY > app.height + 50:
+                        app.gameOver = True
+                        app.isJumping = False
+                        app.playerVX = 0
+                        app.playerVY = 0
 
-            # Land back on the current platform for now.
-            if app.playerY >= app.groundY:
-                app.playerY = app.groundY
-                app.playerVY = 0
-                app.isJumping = False
+                    # # Land back on the current platform for now.
+                    # if app.playerY >= app.groundY:
+                    #     app.playerY = app.groundY
+                    #     app.playerVY = 0
+                    #     app.isJumping = False
+        # if (not app.isJumping) and app.currentPlatformIndex == 1:
+        #                 oldSecond = app.platforms[1]
+        #                 newPlatform = generateNextPlatform(oldSecond)
+
+        #                 app.platforms.pop(0)
+        #                 app.platforms.append(newPlatform)
+
+        #                 app.currentPlatformIndex = 0     
 
     # --- TEST CONNECTION ---
     # Move player based on squatDepth
