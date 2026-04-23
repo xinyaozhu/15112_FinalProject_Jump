@@ -65,6 +65,18 @@ def onAppStart(app):
     app.playerX = first[0] + first[2] // 2
     app.playerY = first[1] - 25
 
+    # --- Jumping ---
+    app.isCharging = False
+    app.maxSquatDepth = 0
+
+    app.isJumping = False
+    app.playerVY = 0
+
+    # this is the y-value where the ghost stands on the first box
+    first = app.platforms[0]
+    app.groundY = first[1] - 25
+    app.playerY = app.groundY
+
 def generateNextPlatform(prev):
     (x, y, w, h) = prev
 
@@ -122,9 +134,38 @@ def onStep(app):
         # Compute squat depth
         app.squatDepth = app.smoothedFaceY - app.baselineY
 
+        # Start charging when squat is deep enough.
+        if app.squatDepth > 8 and not app.isJumping:
+            app.isCharging = True
+            app.maxSquatDepth = max(app.maxSquatDepth, app.squatDepth)
+
+        # If the player was charging and then stands up again,
+        # trigger the jump.
+        elif app.isCharging and app.squatDepth < 15 and not app.isJumping:
+            app.isCharging = False
+            app.isJumping = True
+
+            # Convert squat depth into upward jump speed.
+            # Bigger squat -> stronger jump.
+            app.playerVY = -max(8, app.maxSquatDepth * 0.6)
+
+            # Reset for the next jump.
+            app.maxSquatDepth = 0
+
+        # Update jumping motion.
+        if app.isJumping:
+            app.playerY += app.playerVY
+            app.playerVY += 1   # gravity
+
+            # Land back on the current platform for now.
+            if app.playerY >= app.groundY:
+                app.playerY = app.groundY
+                app.playerVY = 0
+                app.isJumping = False
+
     # --- TEST CONNECTION ---
     # Move player based on squatDepth
-    app.playerY = int(300 + app.squatDepth)
+    # app.playerY = int(300 + app.squatDepth)
 
 def redrawAll(app):
     # Background
@@ -140,6 +181,12 @@ def redrawAll(app):
 
     # Ghost player
     drawGhost(app.playerX, app.playerY)
+
+    drawLabel(f"squatDepth: {int(app.squatDepth)}", app.width//2, 50, size=20)
+    drawLabel(f"isJumping: {app.isJumping}", app.width//2, 100, size=16)
+    drawLabel(f"maxSquat: {int(app.maxSquatDepth)}", app.width//2, 120, size=16)
+    drawLabel(f"playerVY: {int(app.playerVY)}", app.width//2, 140, size=16)
+    drawLabel(f"isCharging: {app.isCharging}", app.width//2, 160, size=16)
 
 
 runApp(width=400, height=600)
