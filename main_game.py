@@ -60,17 +60,30 @@ def onAppStart(app):
     second = generateNextPlatform(first)
     app.platforms = [first, second]
 
+    # Horizontal movement
+    app.playerVX = 0
+    app.currentPlatformIndex = 0
+    app.gameOver = False
+    app.isCharging = False
+    app.maxSquatDepth = 0
+    app.isJumping = False
+    app.playerVY = 0
+    app.playerVX = 0
+    app.currentPlatformIndex = 0
+    app.gameOver = False
+
     # --- Player ---
     # Place the ghost on the first platform
     app.playerX = first[0] + first[2] // 2
     app.playerY = first[1] - 25
 
-    # --- Jumping ---
-    app.isCharging = False
-    app.maxSquatDepth = 0
+    # vertical jump speed
+    app.playerVY = -max(8, app.maxSquatDepth * 0.6)
 
-    app.isJumping = False
-    app.playerVY = 0
+    # horizontal speed to move right
+    app.playerVX = max(3, app.maxSquatDepth * 0.25)
+
+    app.maxSquatDepth = 0
 
     # this is the y-value where the ghost stands on the first box
     first = app.platforms[0]
@@ -154,8 +167,36 @@ def onStep(app):
 
         # Update jumping motion.
         if app.isJumping:
+            app.playerX += app.playerVX
             app.playerY += app.playerVY
             app.playerVY += 1   # gravity
+
+            ghostBottom = app.playerY + 20
+
+            # only check landing while falling downward
+            if app.playerVY > 0:
+                # check every platform
+                for i in range(len(app.platforms)):
+                    x, y, w, h = app.platforms[i]
+
+                    onTop = abs(ghostBottom - y) <= 10
+                    withinX = (x <= app.playerX <= x + w)
+
+                    if onTop and withinX:
+                        app.playerY = y - 20
+                        app.playerVY = 0
+                        app.playerVX = 0
+                        app.isJumping = False
+                        app.currentPlatformIndex = i
+                        app.groundY = y - 25
+                        break
+
+            # if the ghost falls below the screen, game over
+            if app.playerY > app.height + 50:
+                app.gameOver = True
+                app.isJumping = False
+                app.playerVX = 0
+                app.playerVY = 0
 
             # Land back on the current platform for now.
             if app.playerY >= app.groundY:
@@ -187,6 +228,11 @@ def redrawAll(app):
     drawLabel(f"maxSquat: {int(app.maxSquatDepth)}", app.width//2, 120, size=16)
     drawLabel(f"playerVY: {int(app.playerVY)}", app.width//2, 140, size=16)
     drawLabel(f"isCharging: {app.isCharging}", app.width//2, 160, size=16)
+    drawLabel(f"playerVX: {app.playerVX:.1f}", app.width//2, 180, size=16)
+
+    if app.gameOver:
+        drawLabel("Game Over", app.width // 2, app.height // 2,
+                size=32, fill='red', bold=True)
 
 
 runApp(width=400, height=600)
