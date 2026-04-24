@@ -58,13 +58,11 @@ while True:
     else:
         cv2.putText(frame, "No face found", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-    # Show the camera image.
+    
+    
     cv2.imshow("The frame", frame)
-
-    # Quit when q is pressed.
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# Clean up when finished.
 cap.release()
 cv2.destroyAllWindows()
