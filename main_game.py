@@ -118,7 +118,7 @@ def generateNextPlatform(prev):
     newY = y + int(random() * 80) - 40
     newY = max(180, min(360, newY))
 
-    # 如果旧板在左边，新板放右边
+    # Place of the plates
     if x < 200:
         newX = 220
     else:
@@ -245,13 +245,10 @@ def redrawAll(app):
         drawBox(x, y, w, h)
 
     # Debug text
-    drawLabel(f"squatDepth: {int(app.squatDepth)}", app.width // 2, 50, size=20)
+    drawLabel(f"Current Charging Depth: {int(app.squatDepth)}", app.width // 2, 60, size=20)
 
     # Ghost player
     drawGhost(app.playerX, app.playerY, app.playerVY, app.isCharging, app.maxSquatDepth)
-
-    drawLabel(f"squatDepth: {int(app.squatDepth)}", app.width//2, 50, size=20)
-    drawLabel(f"isCharging: {app.isCharging}", app.width//2, 160, size=16)
     drawLabel(f"Score: {app.score}", 70, 30, size=20)
     drawLabel(f"Press Left and Right to change direction", app.width//2, 100, size=16)
     if app.isCharging:
